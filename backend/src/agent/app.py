@@ -1,8 +1,13 @@
 # mypy: disable - error - code = "no-untyped-def,misc"
+import os
 import pathlib
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 import fastapi.exceptions
+from pydantic import BaseModel
+from agents import Agent, Runner, function_tool
+from agents.extensions.models.litellm_model import LitellmModel
+from google.generativeai import Client
 
 # Define the FastAPI app
 app = FastAPI()
@@ -59,3 +64,42 @@ app.mount(
     create_frontend_router(),
     name="frontend",
 )
+
+
+genai_client = Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+
+@function_tool
+def google_search(query: str) -> str:
+    """Run a Google search using the Gemini API."""
+    response = genai_client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=query,
+        config={"tools": [{"google_search": {}}], "temperature": 0},
+    )
+    return response.text
+
+
+DEFAULT_MODEL = os.getenv("AGENT_MODEL", "gemini/gemini-2.5-flash-preview-04-17")
+
+base_agent = Agent(
+    name="Gemini Research Agent",
+    instructions="Use the google_search tool to gather information and answer the user question with citations.",
+    model=LitellmModel(model=DEFAULT_MODEL, api_key=os.getenv("GEMINI_API_KEY")),
+    tools=[google_search],
+)
+
+
+class ChatRequest(BaseModel):
+    question: str
+    model: str | None = None
+
+
+@app.post("/api/chat")
+async def chat(req: ChatRequest):
+    agent = base_agent if not req.model else base_agent.clone(
+        model=LitellmModel(model=req.model, api_key=os.getenv("GEMINI_API_KEY"))
+    )
+    result = await Runner.run(agent, req.question)
+    return {"answer": result.final_output}
+
