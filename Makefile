@@ -11,8 +11,8 @@ dev-frontend:
 	@cd frontend && npm run dev
 
 dev-backend:
-	@echo "Starting backend development server..."
-	@cd backend && langgraph dev
+        @echo "Starting backend development server..."
+        @cd backend && uvicorn src.agent.app:app --reload --port 2024
 
 # Run frontend and backend concurrently
 dev:

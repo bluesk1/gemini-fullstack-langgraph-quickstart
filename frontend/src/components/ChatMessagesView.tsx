@@ -1,5 +1,5 @@
 import type React from "react";
-import type { Message } from "@langchain/langgraph-sdk";
+import type { Message } from "@/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Copy, CopyCheck } from "lucide-react";
 import { InputForm } from "@/components/InputForm";
